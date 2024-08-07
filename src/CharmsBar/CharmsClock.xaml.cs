@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -30,6 +30,7 @@ using System.Collections.ObjectModel;
 using static System.Resources.ResXFileRef;
 using System.Net.NetworkInformation;
 using System.Threading;
+using NativeWifi;
 
 namespace CharmsBarPort
 {
@@ -592,64 +593,25 @@ namespace CharmsBarPort
             {
                 try
                 {
-                    Process proc = new Process
+                    WlanClient client = new WlanClient();
+                    foreach (WlanClient.WlanInterface wlanIface in client.Interfaces)
                     {
-                        StartInfo = new ProcessStartInfo
-                        {
-                            FileName = "netsh.exe",
-                            Arguments = "wlan show interfaces",
-                            UseShellExecute = false,
-                            RedirectStandardOutput = true,
-                            CreateNoWindow = true
-                        }
-                    };
-                    while (true)
-                    {
-                        proc.Start();
-                        string line;
-                        int strength = 0;
-                        string wifi;
-                        while (!proc.StandardOutput.EndOfStream)
-                        {
-                            line = proc.StandardOutput.ReadLine();
-
-                            if (line.Contains("Name"))
-                            {
-                                string tmpx = line.Split(':')[1].Split("%")[0];
-                                isEthernet = tmpx.ToString();
-                            }
-
-                            if (line.Contains("There is"))
-                            {
-                                string tmp = line;
-                                hasDrivers = tmp.Replace(" ", "");
-                            }
-
-                            if (line.Contains("Software"))
-                            {
-                                string tmp2 = line;
-                                nw5 = tmp2.Replace(" ", "");
-                            }
-
-                            if (line.Contains("Signal"))
-                            {
-                                string tmp3 = line.Split(':')[1].Split("%")[0];
-                                Int32.TryParse(tmp3, out strength);
-                                nw4 = strength.ToString();
-                                CheckSignal.ReportProgress(strength);
-                            }
-
-
-                        }
-                        proc.WaitForExit();
+                        Wlan.WlanAvailableNetwork[] networks = wlanIface.GetAvailableNetworkList(0);
+                        string ssid = GetStringForSSID(networks[0].dot11Ssid);
+                        CheckSignal.ReportProgress((int)networks[0].wlanSignalQuality);
+                        // Store or use ssid and signalStrength as needed
                     }
                 }
-
                 catch (Exception ex)
                 {
-
+                    // Handle exception
                 }
             }
+        }
+
+        static string GetStringForSSID(Wlan.Dot11Ssid ssid)
+        {
+            return Encoding.ASCII.GetString(ssid.SSID, 0, (int)ssid.SSIDLength);
         }
 
         static void CheckSignal_ProgressChanged(object sender, ProgressChangedEventArgs e)
